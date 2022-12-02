@@ -1,0 +1,111 @@
+---
+title: "fonetickapodobnost"
+output: html_document
+date: "2022-11-01"
+---
+
+```{r}
+#sets up python environment
+library(reticulate)
+use_condaenv("r-reticulate")
+#required r packages: tidyverse, rvest, corpus, jsonlite, alineR (no CRAN support, see installation guide)
+#required py modules: epitran, pandas
+
+
+```
+
+
+First, we need to source lists of words which shall be transcribed and compared. Different languages, sources and colaborrators will, no doubt, use a gamut of different data formats. The following chunks are tools for extracting a list of word strings stored as a column in a R dataframe named "words".
+
+
+```{r}
+#webscraping tool
+library(rvest)
+library(tidyverse)
+page = read_html("https://www.myadept.ru/index.php/page/spisok-necenzurnyh-slov-dlja-anti-spama-i-cenzury")
+wordcol = page %>% html_nodes(".spoiler_div p") %>% html_text()
+words = data.frame(wordcol, stringsAsFactors = FALSE)
+```
+
+```{r}
+#json tool
+library(tidyverse)
+library(jsonlite)
+wordcol = read_json("C:/Users/Lenovo/Documents/rcorpuslingvistika/wulgaryzmy.json", simplifyVector = TRUE)
+words = data.frame(wordcol, stringsAsFactors = FALSE)
+```
+
+```{r}
+#txt tool, reads lines and cleans then with stringr regex patterns, adjust acc. to your needs
+library(corpus)
+library(tidyverse)
+lines = readLines("C:/Users/Lenovo/Documents/rcorpuslingvistika/odm.txt")
+#data cleaning with adhoc regex expressions (orig. file contains words with all possible conjugations/declensions, this series of steps returns only lemmata rid off excess punctuation)
+
+
+lemmata1 = str_remove_all(lines, "(?<=, )\\w+")
+lemmata2 = str_remove_all(lemmata1, "(?<=, -)\\w+")
+lemmata3 = str_remove_all(lemmata2, "(?<=,  )\\w+")
+lemmata4 = str_remove_all(lemmata3, "\\,")
+lemmata5 = str_remove_all(lemmata4, "\\ -")
+lemmata6 = str_remove_all(lemmata5, "\\'\\w+")
+lemmata7 = str_remove_all(lemmata6, "(?<=\\w)\\ s+")
+words = str_remove_all(lemmata7, "(?<=\\w)\\s\\s+")
+
+
+words = data.frame(lemmata8, check.rows = FALSE,
+           check.names = TRUE, fix.empty.names = TRUE,
+           stringsAsFactors = FALSE)
+
+```
+
+Next, the words need to be transcribed into IPA in order to compare their phonetic similarity. This chunk defines a function toipa, which uses the epitran module to return the IPA transcription of word in our dataframe. Notice, while the chunk uses the object "words" as input, you need to enter the codename of language and script your input words are.
+
+Be mindful of the fact that this process takes quite a lot of runtime (10 000 words in 2 hours on an 5 y.o. laptop). Consider running the transcription step on a gaming machine and doublecheck all the inputs before running the chunk of code.
+
+
+```{python}
+#transcribes function into IPA
+import epitran
+import pandas as pd
+import time
+
+st = time.time()
+
+#transcribing function (definition of lang/script required as per codenames in the Epitran docs)
+def toipa(text):
+  epi = epitran.Epitran("pol-Latn")
+  ipa = epi.transliterate(text)
+  return ipa
+
+
+#converts r df to pandas df
+wordspy = r.polishcorpuslemmata
+samplewordspy = wordspy.sample(80000)
+#creates a new column with ipa transcriptions
+samplewordspy.rename(columns = {'lemmata8':'allwords'}, inplace = True)
+samplewordspy["ipatranscript"] = samplewordspy["allwords"].apply(toipa)
+
+et = time.time()
+
+elapsed_time = et - st
+print(elapsed_time)
+
+```
+
+```{r} 
+#writes the resulting dataframe to the shared google sheets
+library(reticulate)
+library(googlesheets4)
+sheetname = readline(prompt="Enter name of sheet you want your data to be save: ")
+
+words = py$samplewordspy
+sheet_write(words, "https://docs.google.com/spreadsheets/d/1lOAX5rctbRdIptbGHm_qnDw8GjqEVff7aIy9nRYbItg/edit?usp=sharing", sheet = sheetname)
+```
+
+
+
+
+
+
+
