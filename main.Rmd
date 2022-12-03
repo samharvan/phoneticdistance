@@ -8,21 +8,24 @@ date: "2022-11-01"
 #sets up python environment
 library(reticulate)
 use_condaenv("r-reticulate")
-#required r packages: tidyverse, rvest, corpus, jsonlite, alineR (no CRAN support, see installation guide)
+#required r packages: tidyverse, rvest, corpus, jsonlite, alineR (no CRAN support, https://cran.r-project.org/web/packages/alineR/index.html)
 #required py modules: epitran, pandas
 
 
 ```
 
 
-First, we need to source lists of words which shall be transcribed and compared. Different languages, sources and colaborrators will, no doubt, use a gamut of different data formats. The following chunks are tools for extracting a list of word strings stored as a column in a R dataframe named "words".
+First, we need to source lists of words which shall be transcribed and compared. Different languages, sources and collaborators will, no doubt, use a gamut of different data formats. The following chunks are tools for extracting a list of word strings stored as a column in a R data frame named "words".
 
 
 ```{r}
 #webscraping tool
 library(rvest)
 library(tidyverse)
-page = read_html("https://www.myadept.ru/index.php/page/spisok-necenzurnyh-slov-dlja-anti-spama-i-cenzury")
+
+URL_to_page = "https://www.myadept.ru/index.php/page/spisok-necenzurnyh-slov-dlja-anti-spama-i-cenzury"
+
+page = read_html(URL_to_page)
 wordcol = page %>% html_nodes(".spoiler_div p") %>% html_text()
 words = data.frame(wordcol, stringsAsFactors = FALSE)
 ```
@@ -31,7 +34,10 @@ words = data.frame(wordcol, stringsAsFactors = FALSE)
 #json tool
 library(tidyverse)
 library(jsonlite)
-wordcol = read_json("C:/Users/Lenovo/Documents/rcorpuslingvistika/wulgaryzmy.json", simplifyVector = TRUE)
+
+path_to_file = "C:/Users/Lenovo/Documents/rcorpuslingvistika/wulgaryzmy.json"
+
+wordcol = read_json(path_to_file, simplifyVector = TRUE)
 words = data.frame(wordcol, stringsAsFactors = FALSE)
 ```
 
@@ -39,7 +45,10 @@ words = data.frame(wordcol, stringsAsFactors = FALSE)
 #txt tool, reads lines and cleans then with stringr regex patterns, adjust acc. to your needs
 library(corpus)
 library(tidyverse)
-lines = readLines("C:/Users/Lenovo/Documents/rcorpuslingvistika/odm.txt")
+
+path_to_file = "C:/Users/Lenovo/Documents/rcorpuslingvistika/odm.txt"
+
+lines = readLines(path_to_file)
 #data cleaning with adhoc regex expressions (orig. file contains words with all possible conjugations/declensions, this series of steps returns only lemmata rid off excess punctuation)
 
 
@@ -59,9 +68,9 @@ words = data.frame(lemmata8, check.rows = FALSE,
 
 ```
 
-Next, the words need to be transcribed into IPA in order to compare their phonetic similarity. This chunk defines a function toipa, which uses the epitran module to return the IPA transcription of word in our dataframe. Notice, while the chunk uses the object "words" as input, you need to enter the codename of language and script your input words are.
+Next, the words need to be transcribed into IPA in order to compare their phonetic similarity. This chunk defines a function toipa, which uses the epitran module to return the IPA transcription of word in our dataframe. Notice, while the chunk uses the object "words" as input, you need to enter the codename of language and script your input words are (see Epitran documentation online with the list.
 
-Be mindful of the fact that this process takes quite a lot of runtime (10 000 words in 2 hours on an 5 y.o. laptop). Consider running the transcription step on a gaming machine and doublecheck all the inputs before running the chunk of code.
+Be mindful of the fact that this process takes quite a lot of run time (10 000 words in 2 hours on an 5 y.o. laptop). Consider running the transcription step on a gaming machine and double check all the inputs before running the chunk of code below.
 
 
 ```{python}
@@ -80,11 +89,9 @@ def toipa(text):
 
 
 #converts r df to pandas df
-wordspy = r.polishcorpuslemmata
-samplewordspy = wordspy.sample(80000)
+wordspy = r.words
 #creates a new column with ipa transcriptions
-samplewordspy.rename(columns = {'lemmata8':'allwords'}, inplace = True)
-samplewordspy["ipatranscript"] = samplewordspy["allwords"].apply(toipa)
+wordspy["ipatranscript"] = wordspy["wordcol"].apply(toipa)
 
 et = time.time()
 
@@ -94,13 +101,15 @@ print(elapsed_time)
 ```
 
 ```{r} 
-#writes the resulting dataframe to the shared google sheets
+#writes the resulting transcripted dataframe to the shared google sheets
 library(reticulate)
 library(googlesheets4)
-sheetname = readline(prompt="Enter name of sheet you want your data to be save: ")
 
+URL_to_gsheets = "https://docs.google.com/spreadsheets/d/1lOAX5rctbRdIptbGHm_qnDw8GjqEVff7aIy9nRYbItg/edit?usp=sharing"
+
+sheetname = readline(prompt="Enter name of sheet you want your data to be save: ")
 words = py$samplewordspy
-sheet_write(words, "https://docs.google.com/spreadsheets/d/1lOAX5rctbRdIptbGHm_qnDw8GjqEVff7aIy9nRYbItg/edit?usp=sharing", sheet = sheetname)
+sheet_write(words, URL_to_gsheets, sheet = sheetname)
 ```
 
 
