@@ -1,6 +1,6 @@
 ---
 title: "fonetickapodobnost"
-output: html_document
+output: html_document: default
 date: "2022-11-01"
 ---
 
@@ -10,7 +10,6 @@ library(reticulate)
 use_condaenv("r-reticulate")
 #required r packages: tidyverse, rvest, corpus, jsonlite, alineR (no CRAN support, https://cran.r-project.org/web/packages/alineR/index.html)
 #required py modules: epitran, pandas
-
 
 ```
 
@@ -59,10 +58,10 @@ lemmata4 = str_remove_all(lemmata3, "\\,")
 lemmata5 = str_remove_all(lemmata4, "\\ -")
 lemmata6 = str_remove_all(lemmata5, "\\'\\w+")
 lemmata7 = str_remove_all(lemmata6, "(?<=\\w)\\ s+")
-words = str_remove_all(lemmata7, "(?<=\\w)\\s\\s+")
+wordcol = str_remove_all(lemmata7, "(?<=\\w)\\s\\s+")
 
 
-words = data.frame(lemmata8, check.rows = FALSE,
+words = data.frame(wordcol, check.rows = FALSE,
            check.names = TRUE, fix.empty.names = TRUE,
            stringsAsFactors = FALSE)
 
@@ -112,9 +111,39 @@ words = py$samplewordspy
 sheet_write(words, URL_to_gsheets, sheet = sheetname)
 ```
 
+In order to create an alignment matrix, the ALINE package is used to create the object "matice" consisting of columns representing each profane/sampled word and rows representing the words in the list of all types in the targeted language
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+#creates a comparison matrix of profane and all words in a given language
+
+library(foreach)
+library(doParallel)
+library(alineR)
+library(googlesheets4)
+
+registerDoParallel(2)
+
+URL_to_gsheets = "https://docs.google.com/spreadsheets/d/1lOAX5rctbRdIptbGHm_qnDw8GjqEVff7aIy9nRYbItg/edit?usp=sharing"
+
+profanelist = unlist(read_sheet(URL_to_gsheets, sheet="Polština", range="B:B"), use.names=FALSE)
+allwordslist = unlist(read_sheet(URL_to_gsheets, sheet="Polstinavsechny", range="B:B"), use.names=FALSE)
+
+
+listofalign <- list()
+
+system.time({
+  foreach (i = 1:length(profanelist), .combine=c, .packages='alineR' ) %do% {
+    profanewordreplic = replicate(length(profanelist), profanelist[i])
+    alignperword = aline(profanewordreplic, allwordslist, sim = FALSE, m1 = NULL, m2 = NULL, mark=TRUE, alignment = FALSE)
+    listofalign[[i]] <- alignperword
+  } 
+})
+matice = do.call(rbind, listofalign)
 
 
 
+```
 
 
 
