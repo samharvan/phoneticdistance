@@ -72,33 +72,6 @@ Next, the words need to be transcribed into IPA in order to compare their phonet
 Be mindful of the fact that this process takes quite a lot of run time (10 000 words in 2 hours on an 5 y.o. laptop). Consider running the transcription step on a gaming machine and double check all the inputs before running the chunk of code below.
 
 
-```{python}
-#transcribes function into IPA
-import epitran
-import pandas as pd
-import time
-
-st = time.time()
-
-#transcribing function (definition of lang/script required as per codenames in the Epitran docs)
-def toipa(text):
-  epi = epitran.Epitran("pol-Latn")
-  ipa = epi.transliterate(text)
-  return ipa
-
-
-#converts r df to pandas df
-wordspy = r.words
-#creates a new column with ipa transcriptions
-wordspy["ipatranscript"] = wordspy["wordcol"].apply(toipa)
-
-et = time.time()
-
-elapsed_time = et - st
-print(elapsed_time)
-
-```
-
 ```{r} 
 #writes the resulting transcripted dataframe to the shared google sheets
 library(reticulate)
